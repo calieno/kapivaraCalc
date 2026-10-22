@@ -1,0 +1,15 @@
+{
+  "name": "kapivaraCalc (kC49)",
+  "short_name": "kC49",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1218",
+  "theme_color": "#12151b",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23171a22'/><text x='50' y='65' font-size='42' font-weight='bold' fill='%2300c8e0' text-anchor='middle'>kC49</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

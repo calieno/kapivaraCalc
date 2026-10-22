@@ -1,0 +1,18 @@
+[package]
+name = "kC49"
+version = "0.0.1"
+edition = "2021"
+authors = ["calieno", "kapivaraCalc Community"]
+description = "kapivaraCalc (kC49) - Graphing & CAS Calculator"
+license = "MIT"
+
+[[bin]]
+name = "kC49"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

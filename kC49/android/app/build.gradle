@@ -3,15 +3,15 @@ plugins {
 }
 
 android {
-    namespace 'org.hp49.rusty'
+    namespace 'org.kapivara.kc49'
     compileSdk 34
 
     defaultConfig {
-        applicationId "org.hp49.rusty"
+        applicationId "org.kapivara.kc49"
         minSdk 21
         targetSdk 34
         versionCode 1
-        versionName "1.0.0"
+        versionName "0.0.1"
     }
 
     buildTypes {

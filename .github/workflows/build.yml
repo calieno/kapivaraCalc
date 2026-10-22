@@ -1,4 +1,4 @@
-name: Build Multi-Platform Rusty HP 49G
+name: Build Multi-Platform kapivaraCalc (kC49)
 
 on:
   push:
@@ -31,22 +31,22 @@ jobs:
 
       - name: Build Linux Binaries (Static Musl + Standard GNU)
         run: |
-          cd rusty_hp49
+          cd kC49
           cargo build --release --target x86_64-unknown-linux-musl
           cargo build --release --target x86_64-unknown-linux-gnu
           mkdir -p ../artifacts
-          cp target/x86_64-unknown-linux-musl/release/rusty_hp49 ../artifacts/rusty_hp49_linux_static
-          cp target/x86_64-unknown-linux-gnu/release/rusty_hp49 ../artifacts/rusty_hp49_linux_x86_64
-          chmod +x ../artifacts/rusty_hp49_linux*
+          cp target/x86_64-unknown-linux-musl/release/kC49 ../artifacts/kC49_linux_static
+          cp target/x86_64-unknown-linux-gnu/release/kC49 ../artifacts/kC49_linux_x86_64
+          chmod +x ../artifacts/kC49_linux*
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rusty_hp49_linux
-          path: artifacts/rusty_hp49_linux*
+          name: kC49_linux
+          path: artifacts/kC49_linux*
 
   # =========================================================================
-  # 2. WINDOWS BUILD
+  # 2. WINDOWS BUILD (Standalone Desktop App)
   # =========================================================================
   build-windows:
     runs-on: windows-latest
@@ -60,16 +60,17 @@ jobs:
 
       - name: Build Windows .exe
         run: |
-          cd rusty_hp49
+          cd kC49
           cargo build --release --target x86_64-pc-windows-msvc
           mkdir -p ../artifacts
-          copy target\x86_64-pc-windows-msvc\release\rusty_hp49.exe ..\artifacts\rusty_hp49_windows_x64.exe
+          copy target\x86_64-pc-windows-msvc\release\kC49.exe ..\artifacts\kC49.exe
+          copy target\x86_64-pc-windows-msvc\release\kC49.exe ..\artifacts\kC49_windows_x64.exe
 
-      - name: Upload Windows Artifact
+      - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rusty_hp49_windows_x64.exe
-          path: artifacts/rusty_hp49_windows_x64.exe
+          name: kC49_windows
+          path: artifacts/kC49*.exe
 
   # =========================================================================
   # 3. MACOS BUILD (Universal Binary: Intel x86_64 + Apple Silicon M1/M2/M3)
@@ -86,21 +87,21 @@ jobs:
 
       - name: Build Universal macOS Binary
         run: |
-          cd rusty_hp49
+          cd kC49
           cargo build --release --target x86_64-apple-darwin
           cargo build --release --target aarch64-apple-darwin
           mkdir -p ../artifacts
           lipo -create \
-            target/x86_64-apple-darwin/release/rusty_hp49 \
-            target/aarch64-apple-darwin/release/rusty_hp49 \
-            -output ../artifacts/rusty_hp49_macos_universal
-          chmod +x ../artifacts/rusty_hp49_macos_universal
+            target/x86_64-apple-darwin/release/kC49 \
+            target/aarch64-apple-darwin/release/kC49 \
+            -output ../artifacts/kC49_macos_universal
+          chmod +x ../artifacts/kC49_macos_universal
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rusty_hp49_macos_universal
-          path: artifacts/rusty_hp49_macos_universal
+          name: kC49_macos_universal
+          path: artifacts/kC49_macos_universal
 
   # =========================================================================
   # 4. ANDROID APK BUILD
@@ -125,16 +126,17 @@ jobs:
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
-          cd rusty_hp49/android
+          cd kC49/android
           gradle assembleDebug
           mkdir -p ../../artifacts
-          find app/build/outputs/apk -name "*.apk" -exec cp {} ../../artifacts/rusty_hp49_android.apk \;
+          find app/build/outputs/apk -name "*.apk" -exec cp {} ../../artifacts/kC49.apk \;
+          cp ../../artifacts/kC49.apk ../../artifacts/kC49_android.apk
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: rusty_hp49_android.apk
-          path: artifacts/rusty_hp49_android.apk
+          name: kC49_android.apk
+          path: artifacts/kC49.apk
 
   # =========================================================================
   # 5. IPHONE / IOS PACKAGE
@@ -147,13 +149,13 @@ jobs:
       - name: Package iOS Project Bundle
         run: |
           mkdir -p artifacts
-          tar -czf artifacts/rusty_hp49_ios_bundle.tar.gz -C rusty_hp49/ios .
+          tar -czf artifacts/kC49_ios_bundle.tar.gz -C kC49/ios .
 
       - name: Upload iOS Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: rusty_hp49_ios_bundle.tar.gz
-          path: artifacts/rusty_hp49_ios_bundle.tar.gz
+          name: kC49_ios_bundle.tar.gz
+          path: artifacts/kC49_ios_bundle.tar.gz
 
   # =========================================================================
   # 6. GITHUB RELEASE AUTOMATION (Triggers on Git Tags)
@@ -182,18 +184,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist-release/*
-          name: Rusty HP-49G ${{ github.ref_name }}
+          name: kapivaraCalc (kC49) ${{ github.ref_name }}
           draft: false
           prerelease: false
           body: |
-            ## 🚀 Rusty HP-49G - Release ${{ github.ref_name }}
+            ## 🚀 kapivaraCalc (kC49) - Release ${{ github.ref_name }}
             
-            Recriação moderna e elegante da lendária calculadora científica HP 49G em Rust (Single-File Architecture).
+            Calculadora científica, gráfica e simbólica avançada em Rust inspirada na HP 49G com arquitetura Single-File e aplicativo nativo de desktop.
             
-            ### 📦 Binários e Aplicativos Prontos para Download:
-            - **🪟 Windows:** `rusty_hp49_windows_x64.exe`
-            - **🐧 Linux (Estático):** `rusty_hp49_linux_static` (Musl, compatível com qualquer distribuição)
-            - **🐧 Linux (Padrão):** `rusty_hp49_linux_x86_64` (GNU)
-            - **🍏 macOS (Universal):** `rusty_hp49_macos_universal` (Intel + Apple Silicon M1/M2/M3/M4)
-            - **🤖 Android:** `rusty_hp49_android.apk` (Instalável diretamente no smartphone Android)
-            - **📱 iPhone / iOS:** `rusty_hp49_ios_bundle.tar.gz` (Projeto nativo Swift com WKWebView / PWA)
+            ### 📦 Binários e Aplicativos Disponíveis para Download:
+            - **🪟 Windows:** [`kC49.exe`](kC49.exe) / [`kC49_windows_x64.exe`](kC49_windows_x64.exe) *(Aplicativo Desktop independente com janela própria)*
+            - **🐧 Linux (Estático):** [`kC49_linux_static`](kC49_linux_static) *(Musl, funciona em qualquer distro)*
+            - **🐧 Linux (Padrão):** [`kC49_linux_x86_64`](kC49_linux_x86_64) *(GNU)*
+            - **🍏 macOS (Universal):** [`kC49_macos_universal`](kC49_macos_universal) *(Intel + Apple Silicon M1/M2/M3/M4)*
+            - **🤖 Android:** [`kC49.apk`](kC49.apk) *(Instale diretamente no smartphone Android)*
+            - **📱 iPhone / iOS:** [`kC49_ios_bundle.tar.gz`](kC49_ios_bundle.tar.gz) *(Projeto nativo Swift com WKWebView / PWA)*

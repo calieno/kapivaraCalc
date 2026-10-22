@@ -1,11 +1,13 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 // ============================================================================
-// Rusty HP-49G Graphing & CAS Calculator
+// kapivaraCalc (kC49) - Graphing & CAS Calculator
 // ============================================================================
 // Reverse-engineered from Hewlett-Packard HP 49G ROM (rom.e49 / VGER v1.19-6)
 // and official emulator binary (YUser.exe).
 //
 // All mathematical engines, RPN stack, CAS approximations, financial TVM,
-// linear algebra, unit conversions, physics constants, embedded HTTP server,
+// linear algebra, unit conversions, physics constants, standalone window launcher,
 // and modern glassmorphic/neumorphic UI are integrated in this single file.
 //
 // Compatible with: Windows, macOS, Linux, Android (APK/PWA), and iOS (PWA/Capacitor).
@@ -952,9 +954,9 @@ const INDEX_HTML: &str = r###"<!DOCTYPE html>
 <meta name="theme-color" content="#12151b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Rusty HP-49G">
+<meta name="apple-mobile-web-app-title" content="kapivaraCalc">
 <link rel="manifest" href="/manifest.json">
-<title>Rusty HP 49G - Graphing & CAS Calculator</title>
+<title>kapivaraCalc (kC49) - Graphing & CAS Calculator</title>
 <style>
   :root {
     --bg-dark: #0f1218;
@@ -1206,7 +1208,7 @@ const INDEX_HTML: &str = r###"<!DOCTYPE html>
 
 <div class="chassis">
   <div class="brand-bar">
-    <div class="brand-logo">hp 49g<span style="font-size:12px; font-weight:300; margin-left:4px;">RUSTY</span></div>
+    <div class="brand-logo">kapivaraCalc<span style="font-size:12px; font-weight:300; margin-left:6px; color:#00e5ff;">kC49</span></div>
     <div class="badge-cas" id="mode-badge">RPN · CAS</div>
   </div>
 
@@ -1504,15 +1506,15 @@ sendCmd("REFRESH");
 </html>"###;
 
 const MANIFEST_JSON: &str = r###"{
-  "name": "Rusty HP 49G Calculator",
-  "short_name": "HP49G",
+  "name": "kapivaraCalc (kC49)",
+  "short_name": "kC49",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1218",
   "theme_color": "#12151b",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23171a22'/><text x='50' y='65' font-size='45' font-weight='bold' fill='%2300c8e0' text-anchor='middle'>49</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23171a22'/><text x='50' y='65' font-size='42' font-weight='bold' fill='%2300c8e0' text-anchor='middle'>kC49</text></svg>",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml"
     }
@@ -1552,23 +1554,20 @@ impl WebServer {
     }
 
     pub fn start(&self, port: u16) {
-        let listener = match TcpListener::bind(format!("0.0.0.0:{}", port)) {
+        let listener = match TcpListener::bind(format!("127.0.0.1:{}", port)) {
             Ok(l) => l,
             Err(_) => TcpListener::bind("127.0.0.1:0").expect("Failed to bind port"),
         };
         let bound_port = listener.local_addr().unwrap().port();
+        let app_url = format!("http://127.0.0.1:{}", bound_port);
+
         println!("============================================================");
-        println!("  HP 49G RUSTY SERVER RUNNING");
-        println!("  URL: http://localhost:{}", bound_port);
-        println!("  Mobile / LAN: Connect via your device browser");
+        println!("  kapivaraCalc (kC49) RUNNING");
+        println!("  URL: {}", app_url);
         println!("============================================================");
 
-        #[cfg(target_os = "windows")]
-        let _ = std::process::Command::new("cmd").args(&["/C", "start", &format!("http://localhost:{}", bound_port)]).spawn();
-        #[cfg(target_os = "macos")]
-        let _ = std::process::Command::new("open").arg(&format!("http://localhost:{}", bound_port)).spawn();
-        #[cfg(target_os = "linux")]
-        let _ = std::process::Command::new("xdg-open").arg(&format!("http://localhost:{}", bound_port)).spawn();
+        // Launch dedicated standalone application window (no browser tabs/bars, own life!)
+        launch_standalone_app_window(&app_url);
 
         let engine = Arc::clone(&self.engine);
         thread::spawn(move || {
@@ -1581,6 +1580,114 @@ impl WebServer {
                 }
             }
         });
+    }
+}
+
+fn launch_standalone_app_window(url: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        let edge_candidates = [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            "msedge.exe",
+        ];
+        let user_data = format!(r"--user-data-dir={}\kC49_app_profile", std::env::temp_dir().display());
+        for exe in &edge_candidates {
+            if let Ok(mut child) = std::process::Command::new(exe)
+                .args(&[
+                    &format!("--app={}", url),
+                    "--window-size=435,845",
+                    &user_data,
+                    "--app-id=kC49",
+                    "--disable-features=TranslateUI",
+                    "--disable-extensions",
+                    "--no-first-run",
+                ])
+                .spawn()
+            {
+                thread::spawn(move || {
+                    let _ = child.wait();
+                    std::process::exit(0);
+                });
+                return;
+            }
+        }
+
+        let chrome_candidates = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            "chrome.exe",
+        ];
+        for exe in &chrome_candidates {
+            if let Ok(mut child) = std::process::Command::new(exe)
+                .args(&[
+                    &format!("--app={}", url),
+                    "--window-size=435,845",
+                    &user_data,
+                    "--app-id=kC49",
+                    "--disable-extensions",
+                    "--no-first-run",
+                ])
+                .spawn()
+            {
+                thread::spawn(move || {
+                    let _ = child.wait();
+                    std::process::exit(0);
+                });
+                return;
+            }
+        }
+
+        let _ = std::process::Command::new("cmd").args(&["/C", "start", url]).spawn();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let mac_chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+        let mac_edge = "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge";
+        if std::path::Path::new(mac_chrome).exists() {
+            if let Ok(mut child) = std::process::Command::new(mac_chrome)
+                .args(&[&format!("--app={}", url), "--window-size=435,845"])
+                .spawn()
+            {
+                thread::spawn(move || {
+                    let _ = child.wait();
+                    std::process::exit(0);
+                });
+                return;
+            }
+        }
+        if std::path::Path::new(mac_edge).exists() {
+            if let Ok(mut child) = std::process::Command::new(mac_edge)
+                .args(&[&format!("--app={}", url), "--window-size=435,845"])
+                .spawn()
+            {
+                thread::spawn(move || {
+                    let _ = child.wait();
+                    std::process::exit(0);
+                });
+                return;
+            }
+        }
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let linux_browsers = ["google-chrome", "chromium-browser", "chromium", "brave-browser"];
+        for b in &linux_browsers {
+            if let Ok(mut child) = std::process::Command::new(b)
+                .args(&[&format!("--app={}", url), "--window-size=435,845"])
+                .spawn()
+            {
+                thread::spawn(move || {
+                    let _ = child.wait();
+                    std::process::exit(0);
+                });
+                return;
+            }
+        }
+        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
     }
 }
 
@@ -1656,7 +1763,7 @@ fn main() {
 
     if args.iter().any(|a| a == "--cli") {
         println!("============================================================");
-        println!("  HP 49G RUSTY - INTERACTIVE CLI CAS ENGINE");
+        println!("  kapivaraCalc (kC49) - INTERACTIVE CLI CAS ENGINE");
         println!("  Type numbers or commands (+, -, *, /, SIN, COS, DET, etc.)");
         println!("  Type 'EXIT' or 'QUIT' to close.");
         println!("============================================================");
