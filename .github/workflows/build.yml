@@ -16,23 +16,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install musl-tools and gcc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools build-essential
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl,x86_64-unknown-linux-gnu
 
-      - name: Build Linux Musl Static Binary
+      - name: Build Linux Binaries (Static Musl + Standard GNU)
         run: |
           cd rusty_hp49
           cargo build --release --target x86_64-unknown-linux-musl
+          cargo build --release --target x86_64-unknown-linux-gnu
           mkdir -p ../artifacts
-          cp target/x86_64-unknown-linux-musl/release/rusty_hp49 ../artifacts/rusty_hp49_linux_x86_64
+          cp target/x86_64-unknown-linux-musl/release/rusty_hp49 ../artifacts/rusty_hp49_linux_static
+          cp target/x86_64-unknown-linux-gnu/release/rusty_hp49 ../artifacts/rusty_hp49_linux_x86_64
+          chmod +x ../artifacts/rusty_hp49_linux*
 
-      - name: Upload Linux Artifact
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rusty_hp49_linux_x86_64
-          path: artifacts/rusty_hp49_linux_x86_64
+          name: rusty_hp49_linux
+          path: artifacts/rusty_hp49_linux*
 
   # =========================================================================
   # 2. WINDOWS BUILD
@@ -108,13 +116,17 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
+
       - name: Build Android APK
         run: |
           cd rusty_hp49/android
-          chmod +x gradlew || true
-          gradle assembleRelease || gradle assembleDebug
+          gradle assembleDebug
           mkdir -p ../../artifacts
-          find . -name "*.apk" -exec cp {} ../../artifacts/rusty_hp49_android.apk \;
+          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} ../../artifacts/rusty_hp49_android.apk \;
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4

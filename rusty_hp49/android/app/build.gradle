@@ -1,13 +1,15 @@
-apply plugin: 'com.android.application'
+plugins {
+    id 'com.android.application'
+}
 
 android {
     namespace 'org.hp49.rusty'
-    compileSdkVersion 34
+    compileSdk 34
 
     defaultConfig {
         applicationId "org.hp49.rusty"
-        minSdkVersion 21
-        targetSdkVersion 34
+        minSdk 21
+        targetSdk 34
         versionCode 1
         versionName "1.0.0"
     }
@@ -15,11 +17,13 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
         }
     }
 }
 
 dependencies {
-    // Zero heavy dependencies for maximum speed and tiny APK footprint
+    // Zero dependencies for instant build and small APK size
 }
