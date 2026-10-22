@@ -3,6 +3,9 @@ name: Build Multi-Platform Rusty HP 49G
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -113,20 +116,19 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.2'
 
       - name: Build Android APK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           cd rusty_hp49/android
           gradle assembleDebug
           mkdir -p ../../artifacts
-          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} ../../artifacts/rusty_hp49_android.apk \;
+          find app/build/outputs/apk -name "*.apk" -exec cp {} ../../artifacts/rusty_hp49_android.apk \;
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -152,3 +154,46 @@ jobs:
         with:
           name: rusty_hp49_ios_bundle.tar.gz
           path: artifacts/rusty_hp49_ios_bundle.tar.gz
+
+  # =========================================================================
+  # 6. GITHUB RELEASE AUTOMATION (Triggers on Git Tags)
+  # =========================================================================
+  release:
+    needs: [build-linux, build-windows, build-macos, build-android, build-ios]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-files
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p dist-release
+          find release-files -type f -exec cp {} dist-release/ \;
+          ls -lh dist-release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-release/*
+          name: Rusty HP-49G ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            ## 🚀 Rusty HP-49G - Release ${{ github.ref_name }}
+            
+            Recriação moderna e elegante da lendária calculadora científica HP 49G em Rust (Single-File Architecture).
+            
+            ### 📦 Binários e Aplicativos Prontos para Download:
+            - **🪟 Windows:** `rusty_hp49_windows_x64.exe`
+            - **🐧 Linux (Estático):** `rusty_hp49_linux_static` (Musl, compatível com qualquer distribuição)
+            - **🐧 Linux (Padrão):** `rusty_hp49_linux_x86_64` (GNU)
+            - **🍏 macOS (Universal):** `rusty_hp49_macos_universal` (Intel + Apple Silicon M1/M2/M3/M4)
+            - **🤖 Android:** `rusty_hp49_android.apk` (Instalável diretamente no smartphone Android)
+            - **📱 iPhone / iOS:** `rusty_hp49_ios_bundle.tar.gz` (Projeto nativo Swift com WKWebView / PWA)
