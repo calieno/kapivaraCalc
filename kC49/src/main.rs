@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![windows_subsystem = "windows"]
 
 // ============================================================================
 // kapivaraCalc (kC49) - Graphing & CAS Calculator
@@ -1586,6 +1586,9 @@ impl WebServer {
 fn launch_standalone_app_window(url: &str) {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         let edge_candidates = [
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -1593,18 +1596,19 @@ fn launch_standalone_app_window(url: &str) {
         ];
         let user_data = format!(r"--user-data-dir={}\kC49_app_profile", std::env::temp_dir().display());
         for exe in &edge_candidates {
-            if let Ok(mut child) = std::process::Command::new(exe)
-                .args(&[
-                    &format!("--app={}", url),
-                    "--window-size=435,845",
-                    &user_data,
-                    "--app-id=kC49",
-                    "--disable-features=TranslateUI",
-                    "--disable-extensions",
-                    "--no-first-run",
-                ])
-                .spawn()
-            {
+            let mut cmd = std::process::Command::new(exe);
+            cmd.args(&[
+                &format!("--app={}", url),
+                "--window-size=435,845",
+                &user_data,
+                "--app-id=kC49",
+                "--disable-features=TranslateUI",
+                "--disable-extensions",
+                "--no-first-run",
+            ]);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+
+            if let Ok(mut child) = cmd.spawn() {
                 thread::spawn(move || {
                     let _ = child.wait();
                     std::process::exit(0);
@@ -1619,17 +1623,18 @@ fn launch_standalone_app_window(url: &str) {
             "chrome.exe",
         ];
         for exe in &chrome_candidates {
-            if let Ok(mut child) = std::process::Command::new(exe)
-                .args(&[
-                    &format!("--app={}", url),
-                    "--window-size=435,845",
-                    &user_data,
-                    "--app-id=kC49",
-                    "--disable-extensions",
-                    "--no-first-run",
-                ])
-                .spawn()
-            {
+            let mut cmd = std::process::Command::new(exe);
+            cmd.args(&[
+                &format!("--app={}", url),
+                "--window-size=435,845",
+                &user_data,
+                "--app-id=kC49",
+                "--disable-extensions",
+                "--no-first-run",
+            ]);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+
+            if let Ok(mut child) = cmd.spawn() {
                 thread::spawn(move || {
                     let _ = child.wait();
                     std::process::exit(0);
@@ -1638,7 +1643,10 @@ fn launch_standalone_app_window(url: &str) {
             }
         }
 
-        let _ = std::process::Command::new("cmd").args(&["/C", "start", url]).spawn();
+        let mut fallback = std::process::Command::new("cmd");
+        fallback.args(&["/C", "start", url]);
+        fallback.creation_flags(CREATE_NO_WINDOW);
+        let _ = fallback.spawn();
     }
 
     #[cfg(target_os = "macos")]
