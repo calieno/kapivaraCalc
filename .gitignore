@@ -1,0 +1,33 @@
+# Rust build artifacts
+target/
+**/target/
+**/*.rs.bk
+Cargo.lock
+
+# Gradle / Android build artifacts
+.gradle/
+**/build/
+!android/app/build.gradle
+local.properties
+*.iml
+.idea/
+
+# Xcode / iOS artifacts
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+Pods/
+DerivedData/
+
+# C/C++ build artifacts
+*.o
+*.obj
+*.pdb
+*.ilk
+build/
+CMakeFiles/
+CMakeCache.txt
+
+# OS metadata
+.DS_Store
+Thumbs.db
+ti89.rom

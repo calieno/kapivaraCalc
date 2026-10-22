@@ -1,0 +1,142 @@
+name: Build Multi-Platform Rusty HP 49G
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  # =========================================================================
+  # 1. LINUX BUILD
+  # =========================================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Build Linux Musl Static Binary
+        run: |
+          cd rusty_hp49
+          cargo build --release --target x86_64-unknown-linux-musl
+          mkdir -p ../artifacts
+          cp target/x86_64-unknown-linux-musl/release/rusty_hp49 ../artifacts/rusty_hp49_linux_x86_64
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty_hp49_linux_x86_64
+          path: artifacts/rusty_hp49_linux_x86_64
+
+  # =========================================================================
+  # 2. WINDOWS BUILD
+  # =========================================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build Windows .exe
+        run: |
+          cd rusty_hp49
+          cargo build --release --target x86_64-pc-windows-msvc
+          mkdir -p ../artifacts
+          copy target\x86_64-pc-windows-msvc\release\rusty_hp49.exe ..\artifacts\rusty_hp49_windows_x64.exe
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty_hp49_windows_x64.exe
+          path: artifacts/rusty_hp49_windows_x64.exe
+
+  # =========================================================================
+  # 3. MACOS BUILD (Universal Binary: Intel x86_64 + Apple Silicon M1/M2/M3)
+  # =========================================================================
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Build Universal macOS Binary
+        run: |
+          cd rusty_hp49
+          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          mkdir -p ../artifacts
+          lipo -create \
+            target/x86_64-apple-darwin/release/rusty_hp49 \
+            target/aarch64-apple-darwin/release/rusty_hp49 \
+            -output ../artifacts/rusty_hp49_macos_universal
+          chmod +x ../artifacts/rusty_hp49_macos_universal
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty_hp49_macos_universal
+          path: artifacts/rusty_hp49_macos_universal
+
+  # =========================================================================
+  # 4. ANDROID APK BUILD
+  # =========================================================================
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Android APK
+        run: |
+          cd rusty_hp49/android
+          chmod +x gradlew || true
+          gradle assembleRelease || gradle assembleDebug
+          mkdir -p ../../artifacts
+          find . -name "*.apk" -exec cp {} ../../artifacts/rusty_hp49_android.apk \;
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty_hp49_android.apk
+          path: artifacts/rusty_hp49_android.apk
+
+  # =========================================================================
+  # 5. IPHONE / IOS PACKAGE
+  # =========================================================================
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package iOS Project Bundle
+        run: |
+          mkdir -p artifacts
+          tar -czf artifacts/rusty_hp49_ios_bundle.tar.gz -C rusty_hp49/ios .
+
+      - name: Upload iOS Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty_hp49_ios_bundle.tar.gz
+          path: artifacts/rusty_hp49_ios_bundle.tar.gz

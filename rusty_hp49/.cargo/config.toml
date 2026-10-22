@@ -1,0 +1,8 @@
+[build]
+target = "x86_64-unknown-linux-musl"
+
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-C", "linker-flavor=ld.lld",
+    "-C", "linker=/home/calieno/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+]

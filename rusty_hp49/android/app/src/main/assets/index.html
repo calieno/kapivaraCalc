@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#12151b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rusty HP-49G">
+<link rel="manifest" href="/manifest.json">
+<title>Rusty HP 49G - Graphing & CAS Calculator</title>
+<style>
+  :root {
+    --bg-dark: #0f1218;
+    --titanium-1: #1e222d;
+    --titanium-2: #272d3b;
+    --titanium-highlight: #3b4356;
+    --lcd-bg: #151c18;
+    --lcd-matrix: #1b2620;
+    --lcd-glow: #38e89f;
+    --lcd-text: #50ffb4;
+    --lcd-dim: #1f6645;
+    --key-dark: #20242e;
+    --key-white: #e1e7f0;
+    --key-orange: #ff772e;
+    --key-cyan: #00c8e0;
+    --accent-red: #ff3355;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: radial-gradient(circle at 50% 20%, #1a202c, #0a0c10);
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+  }
+  .chassis {
+    width: 100%;
+    max-width: 420px;
+    background: linear-gradient(175deg, #2b3140 0%, #171a22 40%, #101217 100%);
+    border-radius: 36px;
+    padding: 24px 20px 30px 20px;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.85), inset 0 1px 1px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.6);
+    border: 1px solid #363e52;
+    position: relative;
+  }
+  .brand-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 0 8px;
+  }
+  .brand-logo {
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: 1.5px;
+    background: linear-gradient(90deg, #ffffff, #a2b0cb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .badge-cas {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    background: rgba(0,200,224,0.15);
+    border: 1px solid rgba(0,200,224,0.4);
+    color: #00e5ff;
+    border-radius: 12px;
+    letter-spacing: 1px;
+  }
+  .screen-bezel {
+    background: #080b09;
+    border-radius: 18px;
+    padding: 14px;
+    border: 2px solid #232b26;
+    box-shadow: inset 0 6px 16px rgba(0,0,0,0.9), 0 2px 4px rgba(255,255,255,0.05);
+    margin-bottom: 16px;
+  }
+  .annunciator-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--lcd-dim);
+    border-bottom: 1px solid #16241c;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+  }
+  .ann-item.active {
+    color: var(--lcd-text);
+    text-shadow: 0 0 8px var(--lcd-glow);
+  }
+  .ann-shift-orange.active { color: var(--key-orange); text-shadow: 0 0 8px #ff772e; }
+  .ann-shift-cyan.active { color: var(--key-cyan); text-shadow: 0 0 8px #00c8e0; }
+
+  .stack-display {
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-height: 115px;
+  }
+  .stack-level {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--lcd-text);
+    text-shadow: 0 0 4px rgba(80,255,180,0.5);
+  }
+  .stack-idx {
+    color: var(--lcd-dim);
+    font-size: 12px;
+    font-weight: bold;
+    width: 24px;
+  }
+  .stack-val {
+    flex-grow: 1;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .input-line {
+    border-top: 1px dashed #1a3325;
+    margin-top: 6px;
+    padding-top: 4px;
+    display: flex;
+    justify-content: space-between;
+    color: #fff;
+    font-family: monospace;
+    font-size: 15px;
+  }
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background: var(--lcd-glow);
+    animation: blink 1s infinite;
+    vertical-align: middle;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+  .softkey-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .softkey {
+    background: #181d26;
+    border: 1px solid #333d50;
+    border-radius: 8px 8px 12px 12px;
+    height: 30px;
+    color: #9cb1d4;
+    font-weight: bold;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.05s, background 0.1s;
+  }
+  .softkey:active { transform: translateY(2px); background: #263142; }
+
+  .keypad {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .key-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .key {
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #232733, #181b24);
+    border: 1px solid #313747;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1);
+    color: #e4eaf5;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.05s ease-out;
+  }
+  .key:active, .key.pressed {
+    transform: translateY(2px);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.7), inset 0 2px 4px rgba(0,0,0,0.6);
+    background: #151821;
+  }
+  .key-sub-orange {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--key-orange);
+  }
+  .key-sub-cyan {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--key-cyan);
+  }
+
+  .key-shift-orange { background: linear-gradient(145deg, #d35400, #963b00); border-color: #ff8533; color: #fff; }
+  .key-shift-cyan { background: linear-gradient(145deg, #0097a7, #005662); border-color: #33d3e6; color: #fff; }
+  .key-alpha { background: linear-gradient(145deg, #374151, #1f2937); border-color: #4b5563; }
+  .key-enter {
+    grid-row: span 2;
+    height: 96px;
+    background: linear-gradient(145deg, #2563eb, #1d4ed8);
+    border-color: #60a5fa;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .key-op { background: linear-gradient(145deg, #283042, #1c2230); color: #60a5fa; }
+  .key-num { background: linear-gradient(145deg, #1f232e, #141720); font-weight: 700; font-size: 17px; }
+
+  .menu-tabs {
+    display: flex;
+    justify-content: space-around;
+    background: #141822;
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 8px;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: #7b8fae;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .tab-btn.active {
+    background: #273347;
+    color: #00c8e0;
+  }
+</style>
+</head>
+<body>
+
+<div class="chassis">
+  <div class="brand-bar">
+    <div class="brand-logo">hp 49g<span style="font-size:12px; font-weight:300; margin-left:4px;">RUSTY</span></div>
+    <div class="badge-cas" id="mode-badge">RPN · CAS</div>
+  </div>
+
+  <div class="menu-tabs">
+    <button class="tab-btn active" onclick="switchMenu('MATH')">MATH</button>
+    <button class="tab-btn" onclick="switchMenu('CAS')">CAS</button>
+    <button class="tab-btn" onclick="switchMenu('MATR')">MATR</button>
+    <button class="tab-btn" onclick="switchMenu('TVM')">TVM</button>
+    <button class="tab-btn" onclick="switchMenu('STAT')">STAT</button>
+    <button class="tab-btn" onclick="switchMenu('CONST')">CONST</button>
+    <button class="tab-btn" onclick="switchMenu('UNIT')">UNIT</button>
+  </div>
+
+  <div class="softkey-row" id="softkeys">
+    <!-- Softkeys populated dynamically -->
+  </div>
+
+  <div class="screen-bezel">
+    <div class="annunciator-row">
+      <span class="ann-item ann-shift-orange" id="ann-ls">⯬ SHIFT</span>
+      <span class="ann-item ann-shift-cyan" id="ann-rs">SHIFT ⯮</span>
+      <span class="ann-item" id="ann-alpha">ALPHA</span>
+      <span class="ann-item active" id="ann-rad">RAD</span>
+      <span class="ann-item active" id="ann-dec">DEC</span>
+      <span class="ann-item" id="ann-busy">BUSY</span>
+    </div>
+
+    <div class="stack-display">
+      <div class="stack-level"><span class="stack-idx">4:</span><span class="stack-val" id="st-4">0</span></div>
+      <div class="stack-level"><span class="stack-idx">3:</span><span class="stack-val" id="st-3">0</span></div>
+      <div class="stack-level"><span class="stack-idx">2:</span><span class="stack-val" id="st-2">0</span></div>
+      <div class="stack-level"><span class="stack-idx">1:</span><span class="stack-val" id="st-1" style="color:#ffffff; font-weight:bold;">0</span></div>
+    </div>
+
+    <div class="input-line">
+      <span id="input-buffer"></span><span class="cursor"></span>
+    </div>
+  </div>
+
+  <div class="keypad">
+    <div class="key-row">
+      <div class="key" onclick="cmd('SWAP')"><span class="key-sub-orange">HIST</span><span class="key-sub-cyan">VIEW</span>SWAP</div>
+      <div class="key" onclick="cmd('DROP')"><span class="key-sub-orange">CLEAR</span><span class="key-sub-cyan">UNDO</span>DROP</div>
+      <div class="key" onclick="cmd('ROLL')"><span class="key-sub-orange">LIST</span><span class="key-sub-cyan">EVAL</span>ROLL</div>
+      <div class="key" onclick="toggleAngle()"><span class="key-sub-orange">GRAD</span><span class="key-sub-cyan">DEG</span>MODE</div>
+      <div class="key" onclick="bs()"><span class="key-sub-orange">DEL</span><span class="key-sub-cyan">CLR</span>⌫</div>
+    </div>
+
+    <div class="key-row">
+      <div class="key key-shift-orange" onclick="toggleShift('L')">⯬ SHIFT</div>
+      <div class="key key-shift-cyan" onclick="toggleShift('R')">SHIFT ⯮</div>
+      <div class="key key-alpha" onclick="toggleAlpha()">ALPHA</div>
+      <div class="key key-op" onclick="cmd('^')"><span class="key-sub-orange">X²</span><span class="key-sub-cyan">X√Y</span>Y^X</div>
+      <div class="key key-op" onclick="cmd('SQRT')"><span class="key-sub-orange">CBRT</span><span class="key-sub-cyan">ROOT</span>√</div>
+    </div>
+
+    <div class="key-row">
+      <div class="key key-op" onclick="cmd('SIN')"><span class="key-sub-orange">ASIN</span><span class="key-sub-cyan">SINH</span>SIN</div>
+      <div class="key key-op" onclick="cmd('COS')"><span class="key-sub-orange">ACOS</span><span class="key-sub-cyan">COSH</span>COS</div>
+      <div class="key key-op" onclick="cmd('TAN')"><span class="key-sub-orange">ATAN</span><span class="key-sub-cyan">TANH</span>TAN</div>
+      <div class="key key-op" onclick="cmd('LN')"><span class="key-sub-orange">EXP</span><span class="key-sub-cyan">E^X</span>LN</div>
+      <div class="key key-op" onclick="cmd('LOG10')"><span class="key-sub-orange">10^X</span><span class="key-sub-cyan">ALN</span>LOG</div>
+    </div>
+
+    <div class="key-row">
+      <div class="key key-num" onclick="num('7')">7</div>
+      <div class="key key-num" onclick="num('8')">8</div>
+      <div class="key key-num" onclick="num('9')">9</div>
+      <div class="key key-op" onclick="cmd('DIV')">÷</div>
+      <div class="key key-op" onclick="cmd('INV')">1/X</div>
+    </div>
+
+    <div class="key-row">
+      <div class="key key-num" onclick="num('4')">4</div>
+      <div class="key key-num" onclick="num('5')">5</div>
+      <div class="key key-num" onclick="num('6')">6</div>
+      <div class="key key-op" onclick="cmd('MUL')">×</div>
+      <div class="key key-op" onclick="cmd('NEG')">+/-</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:8px;">
+      <div style="grid-column: span 4; display:flex; flex-direction:column; gap:8px;">
+        <div class="key-row" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="key key-num" onclick="num('1')">1</div>
+          <div class="key key-num" onclick="num('2')">2</div>
+          <div class="key key-num" onclick="num('3')">3</div>
+          <div class="key key-op" onclick="cmd('SUB')">-</div>
+        </div>
+        <div class="key-row" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="key key-num" onclick="num('0')">0</div>
+          <div class="key key-num" onclick="num('.')">.</div>
+          <div class="key key-op" onclick="num('E')">EEX</div>
+          <div class="key key-op" onclick="cmd('ADD')">+</div>
+        </div>
+      </div>
+      <div class="key key-enter" onclick="pressEnter()">ENTER</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let buffer = "";
+let shiftL = false;
+let shiftR = false;
+let alpha = false;
+let currentMenu = "MATH";
+
+const menus = {
+  MATH: [
+    { label: "SIN", cmd: "SIN" }, { label: "COS", cmd: "COS" }, { label: "TAN", cmd: "TAN" },
+    { label: "LN", cmd: "LN" }, { label: "EXP", cmd: "EXP" }, { label: "SQRT", cmd: "SQRT" }
+  ],
+  CAS: [
+    { label: "DERIV", cmd: "DERIV" }, { label: "INTEG", cmd: "INTEG" }, { label: "ROOTS", cmd: "ROOTS" },
+    { label: "EXPND", cmd: "EXPAND" }, { label: "FCTR", cmd: "FACTOR" }, { label: "TAYLR", cmd: "TAYLOR" }
+  ],
+  MATR: [
+    { label: "DET", cmd: "DET" }, { label: "TRAN", cmd: "TRAN" }, { label: "INVM", cmd: "INVM" },
+    { label: "SOLVE", cmd: "SOLVE_SYS" }, { label: "DOT", cmd: "DOT" }, { label: "CROSS", cmd: "CROSS" }
+  ],
+  TVM: [
+    { label: "N", cmd: "TVM_N" }, { label: "I%YR", cmd: "TVM_I" }, { label: "PV", cmd: "TVM_PV" },
+    { label: "PMT", cmd: "TVM_PMT" }, { label: "FV", cmd: "TVM_FV" }, { label: "AMRT", cmd: "TVM_AMORT" }
+  ],
+  STAT: [
+    { label: "N!", cmd: "FACT" }, { label: "nCr", cmd: "NCR" }, { label: "nPr", cmd: "NPR" },
+    { label: "GAUSS", cmd: "GAUSS" }, { label: "MEAN", cmd: "MEAN" }, { label: "STDEV", cmd: "STDEV" }
+  ],
+  CONST: [
+    { label: "c", cmd: "299792458" }, { label: "h", cmd: "6.62607015E-34" }, { label: "G", cmd: "6.6743E-11" },
+    { label: "e", cmd: "1.602176634E-19" }, { label: "kB", cmd: "1.380649E-23" }, { label: "NA", cmd: "6.02214076E23" }
+  ],
+  UNIT: [
+    { label: "m->ft", cmd: "CONV_M_FT" }, { label: "ft->m", cmd: "CONV_FT_M" },
+    { label: "kg->lb", cmd: "CONV_KG_LB" }, { label: "C->F", cmd: "CONV_C_F" },
+    { label: "J->cal", cmd: "CONV_J_CAL" }, { label: "Pa->bar", cmd: "CONV_PA_BAR" }
+  ]
+};
+
+function playFeedback() {
+  if (navigator.vibrate) navigator.vibrate(12);
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    g.gain.setValueAtTime(0.04, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.04);
+  } catch(e) {}
+}
+
+function switchMenu(m) {
+  playFeedback();
+  currentMenu = m;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText === m));
+  const container = document.getElementById('softkeys');
+  container.innerHTML = "";
+  menus[m].forEach(item => {
+    const btn = document.createElement('div');
+    btn.className = 'softkey';
+    btn.innerText = item.label;
+    btn.onclick = () => cmd(item.cmd);
+    container.appendChild(btn);
+  });
+}
+
+function updateScreen(levels) {
+  document.getElementById('st-1').innerText = levels[0] || "0";
+  document.getElementById('st-2').innerText = levels[1] || "0";
+  document.getElementById('st-3').innerText = levels[2] || "0";
+  document.getElementById('st-4').innerText = levels[3] || "0";
+}
+
+function num(d) {
+  playFeedback();
+  buffer += d;
+  document.getElementById('input-buffer').innerText = buffer;
+}
+
+function bs() {
+  playFeedback();
+  if (buffer.length > 0) {
+    buffer = buffer.slice(0, -1);
+    document.getElementById('input-buffer').innerText = buffer;
+  } else {
+    cmd("DROP");
+  }
+}
+
+async function pressEnter() {
+  playFeedback();
+  if (buffer.length > 0) {
+    const val = buffer;
+    buffer = "";
+    document.getElementById('input-buffer').innerText = "";
+    await sendCmd(val);
+  } else {
+    await sendCmd("ENTER");
+  }
+}
+
+async function cmd(c) {
+  playFeedback();
+  if (shiftL) {
+    c = "L_" + c;
+    shiftL = false;
+    document.getElementById('ann-ls').classList.remove('active');
+  } else if (shiftR) {
+    c = "R_" + c;
+    shiftR = false;
+    document.getElementById('ann-rs').classList.remove('active');
+  }
+  if (buffer.length > 0) {
+    const val = buffer;
+    buffer = "";
+    document.getElementById('input-buffer').innerText = "";
+    await sendCmd(val);
+  }
+  await sendCmd(c);
+}
+
+function toggleShift(s) {
+  playFeedback();
+  if (s === 'L') {
+    shiftL = !shiftL;
+    shiftR = false;
+  } else {
+    shiftR = !shiftR;
+    shiftL = false;
+  }
+  document.getElementById('ann-ls').classList.toggle('active', shiftL);
+  document.getElementById('ann-rs').classList.toggle('active', shiftR);
+}
+
+function toggleAlpha() {
+  playFeedback();
+  alpha = !alpha;
+  document.getElementById('ann-alpha').classList.toggle('active', alpha);
+}
+
+function toggleAngle() {
+  playFeedback();
+  const radElem = document.getElementById('ann-rad');
+  if (radElem.innerText === "RAD") {
+    radElem.innerText = "DEG";
+    sendCmd("DEG");
+  } else {
+    radElem.innerText = "RAD";
+    sendCmd("RAD");
+  }
+}
+
+async function sendCmd(command) {
+  document.getElementById('ann-busy').classList.add('active');
+  try {
+    const res = await fetch('/api/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd: command })
+    });
+    const data = await res.json();
+    if (data.stack) {
+      updateScreen(data.stack);
+    }
+  } catch(e) {
+    console.error(e);
+  } finally {
+    document.getElementById('ann-busy').classList.remove('active');
+  }
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key >= '0' && e.key <= '9') num(e.key);
+  else if (e.key === '.') num('.');
+  else if (e.key === 'Enter') pressEnter();
+  else if (e.key === 'Backspace') bs();
+  else if (e.key === '+') cmd('+');
+  else if (e.key === '-') cmd('-');
+  else if (e.key === '*') cmd('*');
+  else if (e.key === '/') cmd('/');
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+switchMenu('MATH');
+sendCmd("REFRESH");
+</script>
+</body>
+</html>

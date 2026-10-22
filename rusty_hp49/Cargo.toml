@@ -1,0 +1,22 @@
+[package]
+name = "rusty_hp49"
+version = "1.0.0"
+edition = "2021"
+authors = ["HP49 Community & Antigravity"]
+description = "Modern Re-imagining of the HP 49G Graphing Calculator in Rust"
+license = "MIT"
+
+[dependencies]
+# Using standard library for networking and math to ensure effortless cross-compilation
+# across Windows, macOS, Linux, Android, and iOS without native C toolchain hurdles.
+
+[[bin]]
+name = "rusty_hp49"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
