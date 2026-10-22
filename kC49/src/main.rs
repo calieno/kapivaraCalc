@@ -1465,18 +1465,292 @@ function toggleAngle() {
   }
 }
 
-async function sendCmd(command) {
+class RpnEngineJS {
+  constructor() {
+    this.stack = [0, 0, 0, 0];
+    this.history = [];
+    this.angleMode = 'RAD';
+    this.baseMode = 'DEC';
+    this.tvm = { n: 360, i: 6.0, pv: 100000, pmt: -599.55, fv: 0, begin: false };
+  }
+
+  save() {
+    if (this.history.length > 30) this.history.shift();
+    this.history.push([...this.stack]);
+  }
+
+  undo() {
+    if (this.history.length > 0) this.stack = this.history.pop();
+  }
+
+  push(v) {
+    this.save();
+    this.stack.unshift(v);
+  }
+
+  pop() {
+    this.save();
+    return this.stack.length > 0 ? this.stack.shift() : 0;
+  }
+
+  formatVal(v) {
+    if (typeof v === 'number') {
+      if (this.baseMode === 'HEX') return '#' + (v | 0).toString(16).toUpperCase() + 'h';
+      if (this.baseMode === 'OCT') return '#' + (v | 0).toString(8) + 'o';
+      if (this.baseMode === 'BIN') return '#' + (v | 0).toString(2) + 'b';
+      if (Number.isInteger(v) && Math.abs(v) < 1e12) return v.toString();
+      return parseFloat(v.toPrecision(10)).toString();
+    }
+    return String(v);
+  }
+
+  getStackDisplay() {
+    return [
+      this.formatVal(this.stack[0] || 0),
+      this.formatVal(this.stack[1] || 0),
+      this.formatVal(this.stack[2] || 0),
+      this.formatVal(this.stack[3] || 0)
+    ];
+  }
+
+  toRadians(a) {
+    if (this.angleMode === 'DEG') return a * Math.PI / 180;
+    if (this.angleMode === 'GRAD') return a * Math.PI / 200;
+    return a;
+  }
+
+  fromRadians(r) {
+    if (this.angleMode === 'DEG') return r * 180 / Math.PI;
+    if (this.angleMode === 'GRAD') return r * 200 / Math.PI;
+    return r;
+  }
+
+  execute(cmd) {
+    const c = cmd.trim().toUpperCase();
+    if (!isNaN(Number(cmd))) {
+      this.push(Number(cmd));
+      return;
+    }
+
+    switch (c) {
+      case 'ENTER':
+        this.push(this.stack[0] || 0);
+        break;
+      case 'DROP':
+        this.pop();
+        break;
+      case 'SWAP':
+        if (this.stack.length >= 2) {
+          this.save();
+          const t = this.stack[0];
+          this.stack[0] = this.stack[1];
+          this.stack[1] = t;
+        }
+        break;
+      case 'ROLL':
+        if (this.stack.length >= 3) {
+          this.save();
+          const val = this.stack.splice(2, 1)[0];
+          this.stack.unshift(val);
+        }
+        break;
+      case 'CLEAR':
+        this.save();
+        this.stack = [0, 0, 0, 0];
+        break;
+      case 'UNDO':
+        this.undo();
+        break;
+
+      case 'RAD': this.angleMode = 'RAD'; break;
+      case 'DEG': this.angleMode = 'DEG'; break;
+      case 'GRAD': this.angleMode = 'GRAD'; break;
+      case 'DEC': this.baseMode = 'DEC'; break;
+      case 'HEX': this.baseMode = 'HEX'; break;
+      case 'OCT': this.baseMode = 'OCT'; break;
+      case 'BIN': this.baseMode = 'BIN'; break;
+
+      case '+': case 'ADD': {
+        const y = this.pop(), x = this.pop();
+        this.push(x + y);
+        break;
+      }
+      case '-': case 'SUB': {
+        const y = this.pop(), x = this.pop();
+        this.push(x - y);
+        break;
+      }
+      case '*': case 'MUL': {
+        const y = this.pop(), x = this.pop();
+        this.push(x * y);
+        break;
+      }
+      case '/': case 'DIV': {
+        const y = this.pop(), x = this.pop();
+        this.push(y !== 0 ? x / y : 0);
+        break;
+      }
+      case '^': case 'POW': {
+        const y = this.pop(), x = this.pop();
+        this.push(Math.pow(x, y));
+        break;
+      }
+      case 'MOD': {
+        const y = this.pop(), x = this.pop();
+        this.push(x % y);
+        break;
+      }
+      case 'NEG': case '+/-': {
+        const x = this.pop();
+        this.push(-x);
+        break;
+      }
+      case 'INV': case '1/X': {
+        const x = this.pop();
+        this.push(x !== 0 ? 1 / x : 0);
+        break;
+      }
+      case 'SQRT': {
+        const x = this.pop();
+        this.push(x >= 0 ? Math.sqrt(x) : 0);
+        break;
+      }
+      case 'CBRT': {
+        const x = this.pop();
+        this.push(Math.cbrt(x));
+        break;
+      }
+      case 'ABS': {
+        const x = this.pop();
+        this.push(Math.abs(x));
+        break;
+      }
+      case 'LN': {
+        const x = this.pop();
+        this.push(x > 0 ? Math.log(x) : 0);
+        break;
+      }
+      case 'EXP': {
+        const x = this.pop();
+        this.push(Math.exp(x));
+        break;
+      }
+      case 'LOG10': case 'LOG': {
+        const x = this.pop();
+        this.push(x > 0 ? Math.log10(x) : 0);
+        break;
+      }
+      case 'ALN': case '10^X': {
+        const x = this.pop();
+        this.push(Math.pow(10, x));
+        break;
+      }
+
+      case 'SIN': this.push(Math.sin(this.toRadians(this.pop()))); break;
+      case 'COS': this.push(Math.cos(this.toRadians(this.pop()))); break;
+      case 'TAN': this.push(Math.tan(this.toRadians(this.pop()))); break;
+      case 'ASIN': this.push(this.fromRadians(Math.asin(this.pop()))); break;
+      case 'ACOS': this.push(this.fromRadians(Math.acos(this.pop()))); break;
+      case 'ATAN': this.push(this.fromRadians(Math.atan(this.pop()))); break;
+      case 'SINH': this.push(Math.sinh(this.pop())); break;
+      case 'COSH': this.push(Math.cosh(this.pop())); break;
+      case 'TANH': this.push(Math.tanh(this.pop())); break;
+
+      case 'FACT': case 'N!': {
+        const n = Math.floor(Math.abs(this.pop()));
+        let r = 1;
+        for (let i = 2; i <= Math.min(n, 170); i++) r *= i;
+        this.push(r);
+        break;
+      }
+      case 'NCR': {
+        const r_val = this.pop(), n_val = this.pop();
+        if (r_val < 0 || r_val > n_val) { this.push(0); break; }
+        const k = Math.min(r_val, n_val - r_val);
+        let res = 1;
+        for (let i = 1; i <= k; i++) res = res * (n_val - k + i) / i;
+        this.push(res);
+        break;
+      }
+      case 'NPR': {
+        const r_val = this.pop(), n_val = this.pop();
+        if (r_val < 0 || r_val > n_val) { this.push(0); break; }
+        let res = 1;
+        for (let i = 0; i < r_val; i++) res *= (n_val - i);
+        this.push(res);
+        break;
+      }
+
+      case 'DERIV': {
+        const x = this.pop();
+        const f = t => Math.sin(t) * Math.exp(t);
+        const h = 1e-4 * (1 + Math.abs(x));
+        const d = (-f(x + 2*h) + 8*f(x + h) - 8*f(x - h) + f(x - 2*h)) / (12*h);
+        this.push(d);
+        break;
+      }
+      case 'INTEG': {
+        const b = this.pop(), a = this.pop();
+        const f = t => Math.abs(Math.sin(t)) + 1;
+        const n = 1000;
+        const h = (b - a) / n;
+        let sum = f(a) + f(b);
+        for (let i = 1; i < n; i++) sum += (i % 2 === 0 ? 2 : 4) * f(a + i*h);
+        this.push((h / 3) * sum);
+        break;
+      }
+
+      case 'TVM_N': {
+        const r = (this.tvm.i / 100) / 12;
+        const num = this.tvm.pmt - this.tvm.fv * r;
+        const den = this.tvm.pmt + this.tvm.pv * r;
+        if (num / den > 0) this.tvm.n = Math.log(num / den) / Math.log(1 + r);
+        this.push(this.tvm.n);
+        break;
+      }
+      case 'TVM_PV': {
+        const r = (this.tvm.i / 100) / 12;
+        const f = Math.pow(1 + r, this.tvm.n);
+        this.tvm.pv = -(this.tvm.fv + this.tvm.pmt * (f - 1) / r) / f;
+        this.push(this.tvm.pv);
+        break;
+      }
+      case 'TVM_PMT': {
+        const r = (this.tvm.i / 100) / 12;
+        const f = Math.pow(1 + r, this.tvm.n);
+        this.tvm.pmt = -r * (this.tvm.pv * f + this.tvm.fv) / (f - 1);
+        this.push(this.tvm.pmt);
+        break;
+      }
+      case 'TVM_FV': {
+        const r = (this.tvm.i / 100) / 12;
+        const f = Math.pow(1 + r, this.tvm.n);
+        this.tvm.fv = -this.tvm.pv * f - this.tvm.pmt * (f - 1) / r;
+        this.push(this.tvm.fv);
+        break;
+      }
+
+      case 'CONV_M_FT': this.push(this.pop() * 3.280839895); break;
+      case 'CONV_FT_M': this.push(this.pop() / 3.280839895); break;
+      case 'CONV_KG_LB': this.push(this.pop() * 2.20462262); break;
+      case 'CONV_C_F': this.push(this.pop() * 9/5 + 32); break;
+      case 'CONV_J_CAL': this.push(this.pop() / 4.184); break;
+      case 'CONV_PA_BAR': this.push(this.pop() / 100000); break;
+
+      default: break;
+    }
+  }
+}
+
+const engine = new RpnEngineJS();
+
+function sendCmd(command) {
   document.getElementById('ann-busy').classList.add('active');
   try {
-    const res = await fetch('/api/exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cmd: command })
-    });
-    const data = await res.json();
-    if (data.stack) {
-      updateScreen(data.stack);
+    if (command !== "REFRESH") {
+      engine.execute(command);
     }
+    updateScreen(engine.getStackDisplay());
   } catch(e) {
     console.error(e);
   } finally {
@@ -1608,11 +1882,7 @@ fn launch_standalone_app_window(url: &str) {
             ]);
             cmd.creation_flags(CREATE_NO_WINDOW);
 
-            if let Ok(mut child) = cmd.spawn() {
-                thread::spawn(move || {
-                    let _ = child.wait();
-                    std::process::exit(0);
-                });
+            if let Ok(_) = cmd.spawn() {
                 return;
             }
         }
@@ -1634,17 +1904,13 @@ fn launch_standalone_app_window(url: &str) {
             ]);
             cmd.creation_flags(CREATE_NO_WINDOW);
 
-            if let Ok(mut child) = cmd.spawn() {
-                thread::spawn(move || {
-                    let _ = child.wait();
-                    std::process::exit(0);
-                });
+            if let Ok(_) = cmd.spawn() {
                 return;
             }
         }
 
         let mut fallback = std::process::Command::new("cmd");
-        fallback.args(&["/C", "start", url]);
+        fallback.args(&["/C", "start", "", url]);
         fallback.creation_flags(CREATE_NO_WINDOW);
         let _ = fallback.spawn();
     }
@@ -1654,26 +1920,18 @@ fn launch_standalone_app_window(url: &str) {
         let mac_chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
         let mac_edge = "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge";
         if std::path::Path::new(mac_chrome).exists() {
-            if let Ok(mut child) = std::process::Command::new(mac_chrome)
+            if let Ok(_) = std::process::Command::new(mac_chrome)
                 .args(&[&format!("--app={}", url), "--window-size=435,845"])
                 .spawn()
             {
-                thread::spawn(move || {
-                    let _ = child.wait();
-                    std::process::exit(0);
-                });
                 return;
             }
         }
         if std::path::Path::new(mac_edge).exists() {
-            if let Ok(mut child) = std::process::Command::new(mac_edge)
+            if let Ok(_) = std::process::Command::new(mac_edge)
                 .args(&[&format!("--app={}", url), "--window-size=435,845"])
                 .spawn()
             {
-                thread::spawn(move || {
-                    let _ = child.wait();
-                    std::process::exit(0);
-                });
                 return;
             }
         }
@@ -1684,14 +1942,10 @@ fn launch_standalone_app_window(url: &str) {
     {
         let linux_browsers = ["google-chrome", "chromium-browser", "chromium", "brave-browser"];
         for b in &linux_browsers {
-            if let Ok(mut child) = std::process::Command::new(b)
+            if let Ok(_) = std::process::Command::new(b)
                 .args(&[&format!("--app={}", url), "--window-size=435,845"])
                 .spawn()
             {
-                thread::spawn(move || {
-                    let _ = child.wait();
-                    std::process::exit(0);
-                });
                 return;
             }
         }
@@ -1805,12 +2059,16 @@ fn main() {
         return;
     }
 
-    let port = 4949;
-    let server = WebServer::new();
-    server.start(port);
+    // Write self-contained application assets to local temp cache
+    let temp_dir = std::env::temp_dir().join("kC49_app");
+    let _ = std::fs::create_dir_all(&temp_dir);
+    let html_path = temp_dir.join("index.html");
+    let _ = std::fs::write(&html_path, INDEX_HTML);
+    let _ = std::fs::write(temp_dir.join("manifest.json"), MANIFEST_JSON);
+    let _ = std::fs::write(temp_dir.join("sw.js"), SW_JS);
 
-    println!("Calculator is active! Press Ctrl+C in this terminal to terminate.");
-    loop {
-        thread::sleep(std::time::Duration::from_secs(3600));
-    }
+    let file_url = format!("file:///{}", html_path.to_string_lossy().replace('\\', "/"));
+
+    // Launch standalone window directly via file protocol - zero network dependency!
+    launch_standalone_app_window(&file_url);
 }
