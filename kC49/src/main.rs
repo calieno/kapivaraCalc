@@ -2072,3 +2072,301 @@ fn main() {
     // Launch standalone window directly via file protocol - zero network dependency!
     launch_standalone_app_window(&file_url);
 }
+
+// ============================================================================
+// 10. AUTOMATED TEST SUITE (kC49 CORE VALIDATION)
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rpn_arithmetic() {
+        let mut eng = RpnEngine::default();
+        eng.execute("12").unwrap();
+        eng.execute("34").unwrap();
+        eng.execute("+").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 46.0);
+
+        eng.execute("6").unwrap();
+        eng.execute("-").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 40.0);
+
+        eng.execute("2").unwrap();
+        eng.execute("*").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 80.0);
+
+        eng.execute("4").unwrap();
+        eng.execute("/").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+
+        eng.execute("2").unwrap();
+        eng.execute("^").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 400.0);
+
+        eng.execute("SQRT").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+
+        eng.execute("NEG").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), -20.0);
+
+        eng.execute("ABS").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+
+        eng.execute("INV").unwrap();
+        assert!((eng.get_level(0).as_f64().unwrap() - 0.05).abs() < 1e-9);
+
+        // Division by zero
+        eng.execute("10").unwrap();
+        eng.execute("0").unwrap();
+        assert!(eng.execute("/").is_err());
+    }
+
+    #[test]
+    fn test_stack_manipulation() {
+        let mut eng = RpnEngine::default();
+        eng.execute("10").unwrap();
+        eng.execute("20").unwrap();
+        eng.execute("30").unwrap();
+
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 30.0);
+        assert_eq!(eng.get_level(1).as_f64().unwrap(), 20.0);
+        assert_eq!(eng.get_level(2).as_f64().unwrap(), 10.0);
+
+        // SWAP
+        eng.execute("SWAP").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+        assert_eq!(eng.get_level(1).as_f64().unwrap(), 30.0);
+
+        // ROLL
+        eng.execute("ROLL").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 10.0);
+
+        // DROP
+        eng.execute("DROP").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+
+        // ENTER (duplicate X)
+        eng.execute("ENTER").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+        assert_eq!(eng.get_level(1).as_f64().unwrap(), 20.0);
+
+        // UNDO
+        eng.execute("DROP").unwrap();
+        eng.execute("UNDO").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+
+        // CLEAR
+        eng.execute("CLEAR").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_trigonometry_and_angles() {
+        let mut eng = RpnEngine::default();
+
+        // RAD mode
+        eng.execute("RAD").unwrap();
+        assert_eq!(eng.angle_mode, AngleMode::Rad);
+        eng.execute("0").unwrap();
+        eng.execute("COS").unwrap();
+        assert!((eng.get_level(0).as_f64().unwrap() - 1.0).abs() < 1e-9);
+
+        // DEG mode
+        eng.execute("DEG").unwrap();
+        assert_eq!(eng.angle_mode, AngleMode::Deg);
+        eng.execute("90").unwrap();
+        eng.execute("SIN").unwrap();
+        assert!((eng.get_level(0).as_f64().unwrap() - 1.0).abs() < 1e-9);
+
+        eng.execute("60").unwrap();
+        eng.execute("COS").unwrap();
+        assert!((eng.get_level(0).as_f64().unwrap() - 0.5).abs() < 1e-9);
+
+        eng.execute("45").unwrap();
+        eng.execute("TAN").unwrap();
+        assert!((eng.get_level(0).as_f64().unwrap() - 1.0).abs() < 1e-9);
+
+        eng.execute("1").unwrap();
+        eng.execute("ASIN").unwrap();
+        assert!((eng.get_level(0).as_f64().unwrap() - 90.0).abs() < 1e-7);
+
+        // Hyperbolic
+        eng.execute("0").unwrap();
+        eng.execute("SINH").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 0.0);
+
+        eng.execute("0").unwrap();
+        eng.execute("COSH").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_probability_combinatorics() {
+        let mut eng = RpnEngine::default();
+
+        // 5! = 120
+        eng.execute("5").unwrap();
+        eng.execute("FACT").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 120.0);
+
+        // 0! = 1
+        eng.execute("0").unwrap();
+        eng.execute("FACT").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 1.0);
+
+        // 5 C 2 = 10
+        eng.execute("5").unwrap();
+        eng.execute("2").unwrap();
+        eng.execute("NCR").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 10.0);
+
+        // 5 P 2 = 20
+        eng.execute("5").unwrap();
+        eng.execute("2").unwrap();
+        eng.execute("NPR").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 20.0);
+    }
+
+    #[test]
+    fn test_matrix_operations() {
+        // Determinant of 2x2: [[1, 2], [3, 4]] -> 1*4 - 2*3 = -2
+        let m2 = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let det2 = MatrixEngine::det(&m2).unwrap();
+        assert!((det2 - (-2.0)).abs() < 1e-9);
+
+        // Transpose
+        let t = MatrixEngine::transpose(&m2);
+        assert_eq!(t, vec![vec![1.0, 3.0], vec![2.0, 4.0]]);
+
+        // Inverse
+        let inv2 = MatrixEngine::inverse(&m2).unwrap();
+        // Check A * A^-1 = Identity
+        let prod = MatrixEngine::multiply(&m2, &inv2).unwrap();
+        assert!((prod[0][0] - 1.0).abs() < 1e-9);
+        assert!(prod[0][1].abs() < 1e-9);
+        assert!(prod[1][0].abs() < 1e-9);
+        assert!((prod[1][1] - 1.0).abs() < 1e-9);
+
+        // Solve Linear System:
+        //  2x +  y = 5
+        //   x + 3y = 5
+        // Solution: x = 2, y = 1
+        let a = vec![vec![2.0, 1.0], vec![1.0, 3.0]];
+        let b = vec![5.0, 5.0];
+        let sol = MatrixEngine::solve_system(&a, &b).unwrap();
+        assert!((sol[0] - 2.0).abs() < 1e-9);
+        assert!((sol[1] - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_calculus_engine() {
+        // d/dx (x^3) at x = 2 -> 3*(2^2) = 12
+        let d = CasEngine::differentiate(|x| x * x * x, 2.0);
+        assert!((d - 12.0).abs() < 1e-4);
+
+        // d^2/dx^2 (x^3) at x = 2 -> 6*2 = 12
+        let d2 = CasEngine::differentiate2(|x| x * x * x, 2.0);
+        assert!((d2 - 12.0).abs() < 1e-3);
+
+        // Integral of 3x^2 from 0 to 2 -> [x^3]_0^2 = 8
+        let integ = CasEngine::integrate(|x| 3.0 * x * x, 0.0, 2.0, 200);
+        assert!((integ - 8.0).abs() < 1e-5);
+
+        // Polynomial roots: x^2 - 4 = 0 -> roots: +2 and -2
+        let roots = CasEngine::poly_roots(&[1.0, 0.0, -4.0]);
+        assert_eq!(roots.len(), 2);
+        let mut real_roots: Vec<f64> = roots.iter().map(|r| r.0).collect();
+        real_roots.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert!((real_roots[0] - (-2.0)).abs() < 1e-4);
+        assert!((real_roots[1] - 2.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_tvm_financial_solver() {
+        // 30-year fixed loan: 100,000 at 6% annual
+        // N = 360, I = 6.0, PV = 100,000, FV = 0
+        // Expected PMT approx -599.55
+        let mut tvm = TvmState {
+            n: 360.0,
+            i: 6.0,
+            pv: 100_000.0,
+            pmt: 0.0,
+            fv: 0.0,
+            begin_mode: false,
+        };
+        let pmt = tvm.solve_pmt();
+        assert!((pmt - (-599.55)).abs() < 0.1);
+
+        // Solve PV from PMT
+        let pv = tvm.solve_pv();
+        assert!((pv - 100_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_unit_converter() {
+        // 1 meter = 3.28084 feet
+        let ft = UnitConverter::convert(1.0, "m", "ft").unwrap();
+        assert!((ft - 3.280839895).abs() < 1e-5);
+
+        // 100 C = 212 F
+        let f = UnitConverter::convert(100.0, "C", "F").unwrap();
+        assert!((f - 212.0).abs() < 1e-9);
+
+        // 0 C = 273.15 K
+        let k = UnitConverter::convert(0.0, "C", "K").unwrap();
+        assert!((k - 273.15).abs() < 1e-9);
+
+        // 1 kg to lb
+        let lb = UnitConverter::convert(1.0, "kg", "lb").unwrap();
+        assert!((lb - 2.20462).abs() < 1e-3);
+
+        // 100,000 Pa = 1 bar
+        let bar = UnitConverter::convert(100_000.0, "Pa", "bar").unwrap();
+        assert!((bar - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_physics_constants() {
+        let table = Constants::get_table();
+        assert!(table.len() >= 14);
+
+        let c = table.iter().find(|item| item.0 == "c").unwrap();
+        assert_eq!(c.2, 299_792_458.0);
+
+        let g0 = table.iter().find(|item| item.0 == "g0").unwrap();
+        assert_eq!(g0.2, 9.80665);
+
+        let e = table.iter().find(|item| item.0 == "e").unwrap();
+        assert!((e.2 - 1.602176634e-19).abs() < 1e-25);
+    }
+
+    #[test]
+    fn test_programmer_bases() {
+        let mut eng = RpnEngine::default();
+        eng.execute("255").unwrap();
+
+        eng.execute("HEX").unwrap();
+        assert_eq!(eng.get_level(0).to_display_string(eng.angle_mode, eng.base_mode), "#FFh");
+
+        eng.execute("OCT").unwrap();
+        assert_eq!(eng.get_level(0).to_display_string(eng.angle_mode, eng.base_mode), "#377o");
+
+        eng.execute("BIN").unwrap();
+        assert_eq!(eng.get_level(0).to_display_string(eng.angle_mode, eng.base_mode), "#11111111b");
+
+        // Hex input: #10h = 16
+        eng.execute("DEC").unwrap();
+        eng.execute("#10h").unwrap();
+        assert_eq!(eng.get_level(0).as_f64().unwrap(), 16.0);
+    }
+
+    #[test]
+    fn test_embedded_assets_validity() {
+        assert!(INDEX_HTML.contains("kapivaraCalc"));
+        assert!(INDEX_HTML.contains("kC49"));
+        assert!(MANIFEST_JSON.contains("kapivaraCalc (kC49)"));
+        assert!(SW_JS.contains("hp49-cache-v1"));
+    }
+}
